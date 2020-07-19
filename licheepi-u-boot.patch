@@ -1,0 +1,22 @@
+diff --git a/configs/LicheePi_Zero_480x272LCD_defconfig b/configs/LicheePi_Zero_480x272LCD_defconfig
+index 685c52241c..df3cd1573c 100644
+--- a/configs/LicheePi_Zero_480x272LCD_defconfig
++++ b/configs/LicheePi_Zero_480x272LCD_defconfig
+@@ -4,15 +4,15 @@ CONFIG_ARCH_SUNXI=y
+ CONFIG_MACH_SUN8I_V3S=y
+ CONFIG_DRAM_CLK=360
+ CONFIG_DRAM_ZQ=14779
++CONFIG_SYS_CLK_FREQ=1200000000
+ CONFIG_VIDEO_LCD_MODE="x:480,y:272,depth:18,pclk_khz:10000,le:42,ri:8,up:11,lo:4,hs:1,vs:1,sync:3,vmode:0"
+ CONFIG_VIDEO_LCD_BL_PWM="PB4"
+ # CONFIG_VIDEO_LCD_BL_PWM_ACTIVE_LOW is not set
+ CONFIG_DEFAULT_DEVICE_TREE="sun8i-v3s-licheepi-zero"
++CONFIG_BOOTDELAY=0
+ # CONFIG_CONSOLE_MUX is not set
+ CONFIG_SPL=y
+-CONFIG_CMD_BOOTMENU=y
+ # CONFIG_CMD_IMLS is not set
+-CONFIG_CMD_MEMINFO=y
+ # CONFIG_CMD_FLASH is not set
+ # CONFIG_CMD_FPGA is not set
+ # CONFIG_NETDEVICES is not set
