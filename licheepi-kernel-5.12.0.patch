@@ -1,0 +1,1095 @@
+diff --git a/Documentation/devicetree/bindings/input/touchscreen/ns2009.txt b/Documentation/devicetree/bindings/input/touchscreen/ns2009.txt
+new file mode 100644
+index 000000000..342e7efd5
+--- /dev/null
++++ b/Documentation/devicetree/bindings/input/touchscreen/ns2009.txt
+@@ -0,0 +1,23 @@
++* Nsiway NS2009 Resistive Touchscreen Controller
++
++ Required properties:
++- compatible		  : "nsiway,ns2009"
++- reg			  : I2C slave address of the chip (0x48 or 0x49, depends on
++			    the hardware)
++
++ Optional properties:
++- interrupt-parent	  : a phandle pointing to the interrupt controller
++			    serving the interrupt for this chip
++- interrupts		  : interrupt specification for the ns2009 pen interrupt
++- properties defined in touchscreen.txt
++
++ Example:
++
++ i2c@00000000 {
++	ns2009: touchscreen@48 {
++		compatible = "nsiway,ns2009";
++		reg = <0x48>;
++		touchscreen-fuzz-x = <8>;
++		touchscreen-fuzz-y = <8>;
++	};
++};
+diff --git a/Documentation/devicetree/bindings/vendor-prefixes.yaml b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+index f6064d84a..2c41ddf66 100644
+--- a/Documentation/devicetree/bindings/vendor-prefixes.yaml
++++ b/Documentation/devicetree/bindings/vendor-prefixes.yaml
+@@ -786,6 +786,8 @@ patternProperties:
+     description: Nordic Semiconductor
+   "^novtech,.*":
+     description: NovTech, Inc.
++  "^nsiway,.*":
++    description: Shenzhen Nsiway Technology Co., Ltd.
+   "^nutsboard,.*":
+     description: NutsBoard
+   "^nuvoton,.*":
+diff --git a/MAINTAINERS b/MAINTAINERS
+index d92f85ca8..c401d2864 100644
+--- a/MAINTAINERS
++++ b/MAINTAINERS
+@@ -12718,6 +12718,12 @@ S:	Maintained
+ T:	git git://git.kernel.org/pub/scm/linux/kernel/git/wtarreau/nolibc.git
+ F:	tools/include/nolibc/
+ 
++NSIWAY NS2009 TOUCHSCREEN CONTROLLER
++M:     Icenowy Zheng <icenowy@aosc.xyz>
++L:     linux-input@vger.kernel.org
++S:     Maintained
++F:     drivers/input/touchscreen/ns2009.c
++
+ NSDEPS
+ M:	Matthias Maennich <maennich@google.com>
+ S:	Maintained
+diff --git a/arch/arm/boot/dts/Makefile b/arch/arm/boot/dts/Makefile
+index 8e5d4ab4e..a1dfd4680 100644
+--- a/arch/arm/boot/dts/Makefile
++++ b/arch/arm/boot/dts/Makefile
+@@ -1229,6 +1229,9 @@ dtb-$(CONFIG_MACH_SUN8I) += \
+ 	sun8i-v3-sl631-imx179.dtb \
+ 	sun8i-v3s-licheepi-zero.dtb \
+ 	sun8i-v3s-licheepi-zero-dock.dtb \
++	sun8i-v3s-licheepi-zero-with-480x272-lcd.dtb \
++	sun8i-v3s-licheepi-zero-with-800x480-lcd.dtb \
++	#sun8i-v3s-licheepi-zero-with-1024x600-lcd.dtb \
+ 	sun8i-v40-bananapi-m2-berry.dtb
+ dtb-$(CONFIG_MACH_SUN9I) += \
+ 	sun9i-a80-optimus.dtb \
+diff --git a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-dock.dts b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-dock.dts
+index db5cd0b85..ce53d5c7c 100644
+--- a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-dock.dts
++++ b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-dock.dts
+@@ -49,12 +49,32 @@ / {
+ 	compatible = "licheepi,licheepi-zero-dock", "licheepi,licheepi-zero",
+ 		     "allwinner,sun8i-v3s";
+ 
++	aliases {
++		ethernet0 = &emac;
++	};
++
+ 	leds {
+ 		/* The LEDs use PG0~2 pins, which conflict with MMC1 */
+ 		status = "disabled";
+ 	};
+ };
+ 
++&codec {
++	allwinner,audio-routing =
++		"Headphone", "HP",
++		"Headphone", "HPCOM",
++		"MIC1", "Mic",
++		"Mic",  "HBIAS";
++	status = "okay";
++};
++
++&emac {
++	phy-handle = <&int_mii_phy>;
++	phy-mode = "mii";
++	allwinner,leds-active-low;
++	status = "okay";
++};
++
+ &mmc1 {
+ 	broken-cd;
+ 	bus-width = <4>;
+@@ -94,3 +114,16 @@ button-800 {
+ 		voltage = <800000>;
+ 	};
+ };
++
++//&i2c0 {
++//	gt911: touchscreen@14 {
++//        compatible = "goodix,gt911";
++//        reg = <0x5d>;
++//        interrupt-parent = <&pio>;
++//        interrupts = <1 5 IRQ_TYPE_EDGE_FALLING>; /* (PB5) */
++//        pinctrl-names = "default";
++//        irq-gpios = <&pio 1 5 GPIO_ACTIVE_HIGH>; /* (PB5) */
++//        reset-gpios = <&pio 2 1 GPIO_ACTIVE_HIGH>; /* RST (PC1) */
++//        /* touchscreen-swapped-x-y */
++//    };
++//};
+diff --git a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-480x272-lcd.dts b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-480x272-lcd.dts
+new file mode 100644
+index 000000000..6e4509cd1
+--- /dev/null
++++ b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-480x272-lcd.dts
+@@ -0,0 +1,11 @@
++/*
++ * Copyright (C) 2018 Icenowy Zheng <icenowy@aosc.io>
++ *
++ * SPDX-License-Identifier: (GPL-2.0+ OR X11)
++ */
++
++ #include "sun8i-v3s-licheepi-zero-with-lcd.dtsi"
++
++ &panel {
++	compatible = "qiaodian,qd43003c0-40", "simple-panel";
++};
+diff --git a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-800x480-lcd.dts b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-800x480-lcd.dts
+new file mode 100644
+index 000000000..6d1bb4060
+--- /dev/null
++++ b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-800x480-lcd.dts
+@@ -0,0 +1,11 @@
++/*
++ * Copyright (C) 2018 Icenowy Zheng <icenowy@aosc.io>
++ *
++ * SPDX-License-Identifier: (GPL-2.0+ OR X11)
++ */
++
++ #include "sun8i-v3s-licheepi-zero-with-lcd.dtsi"
++
++ &panel {
++	compatible = "urt,umsh-8596md-t", "simple-panel";
++};
+diff --git a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-lcd.dtsi b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-lcd.dtsi
+new file mode 100644
+index 000000000..10f4e799d
+--- /dev/null
++++ b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero-with-lcd.dtsi
+@@ -0,0 +1,113 @@
++/*
++ * Copyright (C) 2018 Icenowy Zheng <icenowy@aosc.io>
++ *
++ * SPDX-License-Identifier: (GPL-2.0+ OR X11)
++ */
++
++#include "sun8i-v3s-licheepi-zero.dts"
++#include <dt-bindings/input/input.h>
++
++ / {
++        model = "Lichee Pi Zero with Dock";
++        compatible = "licheepi,licheepi-zero-dock", "licheepi,licheepi-zero",
++                     "allwinner,sun8i-v3s";
++        aliases {
++                ethernet0 = &emac;
++        };
++
++	backlight: backlight {
++		compatible = "pwm-backlight";
++		pwms = <&pwm 0 1000000 0>;
++		brightness-levels = <0 30 40 50 60 70 100>;
++		default-brightness-level = <6>;
++	};
++
++	panel: panel {
++		#address-cells = <1>;
++		#size-cells = <0>;
++
++		port@0 {
++			reg = <0>;
++			backlight = <&backlight>;
++			#address-cells = <1>;
++			#size-cells = <0>;
++
++			panel_input: endpoint@0 {
++				reg = <0>;
++				remote-endpoint = <&tcon0_out_lcd>;
++			};
++		};
++	};
++};
++
++&codec {
++        allwinner,audio-routing =
++                "Headphone", "HP",
++                "Headphone", "HPCOM",
++                "MIC1", "Mic",
++                "Mic",  "HBIAS";
++        status = "okay";
++};
++
++&emac {
++       phy-handle = <&int_mii_phy>;
++       phy-mode = "mii";
++       allwinner,leds-active-low;
++       status = "okay";
++};
++
++&lradc {
++        vref-supply = <&reg_vcc3v0>;
++        status = "okay";
++
++        button-200 {
++                label = "Volume Up";
++                linux,code = <KEY_VOLUMEUP>;
++                channel = <0>;
++                voltage = <200000>;
++        };
++
++        button-400 {
++                label = "Volume Down";
++                linux,code = <KEY_VOLUMEDOWN>;
++                channel = <0>;
++                voltage = <400000>;
++        };
++
++        button-600 {
++                label = "Select";
++                linux,code = <KEY_SELECT>;
++                channel = <0>;
++                voltage = <600000>;
++        };
++
++        button-800 {
++                label = "Start";
++                linux,code = <KEY_OK>;
++                channel = <0>;
++                voltage = <800000>;
++        };
++};
++
++&de {
++	status = "okay";
++};
++
++&pwm {
++	pinctrl-names = "default";
++	pinctrl-0 = <&pwm0_pins>;
++	status = "okay";
++};
++
++&tcon0 {
++	pinctrl-names = "default";
++	pinctrl-0 = <&lcd_rgb666_pins_a>;
++	status = "okay";
++};
++
++&tcon0_out {
++	tcon0_out_lcd: endpoint@0 {
++		reg = <0>;
++		remote-endpoint = <&panel_input>;
++	};
++};
+diff --git a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero.dts b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero.dts
+index 2e4587d26..ce4ec3f49 100644
+--- a/arch/arm/boot/dts/sun8i-v3s-licheepi-zero.dts
++++ b/arch/arm/boot/dts/sun8i-v3s-licheepi-zero.dts
+@@ -43,6 +43,7 @@
+ /dts-v1/;
+ #include "sun8i-v3s.dtsi"
+ #include "sunxi-common-regulators.dtsi"
++#include "tca8418.dts"
+ 
+ / {
+ 	model = "Lichee Pi Zero";
+@@ -77,6 +78,10 @@ red_led {
+ 	};
+ };
+ 
++&ehci0 {
++	status = "okay";
++};
++
+ &mmc0 {
+ 	broken-cd;
+ 	bus-width = <4>;
+@@ -84,6 +89,19 @@ &mmc0 {
+ 	status = "okay";
+ };
+ 
++&i2c0 {
++	status = "okay";
++
++//	ns2009: ns2009@48 {
++//		compatible = "nsiway,ns2009";
++//		reg = <0x48>;
++//	};
++};
++
++&ohci0 {
++	status = "okay";
++};
++
+ &uart0 {
+ 	pinctrl-0 = <&uart0_pb_pins>;
+ 	pinctrl-names = "default";
+diff --git a/arch/arm/boot/dts/sun8i-v3s.dtsi b/arch/arm/boot/dts/sun8i-v3s.dtsi
+index eb4cb63fe..d343e7f6d 100644
+--- a/arch/arm/boot/dts/sun8i-v3s.dtsi
++++ b/arch/arm/boot/dts/sun8i-v3s.dtsi
+@@ -50,6 +50,21 @@ / {
+ 	#size-cells = <1>;
+ 	interrupt-parent = <&gic>;
+ 
++        cpu0_opp_table: opp_table0 {
++                compatible = "operating-points-v2";
++                opp-shared;
++
++                opp-1008000000 {
++                        opp-hz = /bits/ 64 <1008000000>;
++                        clock-latency-ns = <244144>; /* 8 32k periods */
++                };
++
++                opp-1200000000 {
++                        opp-hz = /bits/ 64 <1200000000>;
++                        clock-latency-ns = <244144>; /* 8 32k periods */
++                };
++	};
++	
+ 	chosen {
+ 		#address-cells = <1>;
+ 		#size-cells = <1>;
+@@ -74,6 +89,8 @@ cpu@0 {
+ 			device_type = "cpu";
+ 			reg = <0>;
+ 			clocks = <&ccu CLK_CPU>;
++			clock-names = "cpu";
++                        operating-points-v2 = <&cpu0_opp_table>;
+ 		};
+ 	};
+ 
+@@ -206,6 +223,14 @@ tcon0_out: port@1 {
+ 			};
+ 		};
+ 
++		dma: dma-controller@01c02000 {
++			compatible = "allwinner,sun8i-v3s-dma";
++			reg = <0x01c02000 0x1000>;
++			interrupts = <GIC_SPI 50 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_DMA>;
++			resets = <&ccu RST_BUS_DMA>;
++			#dma-cells = <1>;
++		};
+ 
+ 		mmc0: mmc@1c0f000 {
+ 			compatible = "allwinner,sun7i-a20-mmc";
+@@ -306,6 +331,25 @@ usbphy: phy@1c19400 {
+ 			#phy-cells = <1>;
+ 		};
+ 
++		ehci0: usb@01c1a000 {
++			compatible = "allwinner,sun8i-v3s-ehci", "generic-ehci";
++			reg = <0x01c1a000 0x100>;
++			interrupts = <GIC_SPI 72 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_EHCI0>, <&ccu CLK_BUS_OHCI0>;
++			resets = <&ccu RST_BUS_EHCI0>, <&ccu RST_BUS_OHCI0>;
++			status = "disabled";
++		};
++
++		ohci0: usb@01c1a400 {
++			compatible = "allwinner,sun8i-v3s-ohci", "generic-ohci";
++			reg = <0x01c1a400 0x100>;
++			interrupts = <GIC_SPI 73 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_EHCI0>, <&ccu CLK_BUS_OHCI0>,
++				 <&ccu CLK_USB_OHCI0>;
++			resets = <&ccu RST_BUS_EHCI0>, <&ccu RST_BUS_OHCI0>;
++			status = "disabled";
++		};
++
+ 		ccu: clock@1c20000 {
+ 			compatible = "allwinner,sun8i-v3s-ccu";
+ 			reg = <0x01c20000 0x400>;
+@@ -357,17 +401,40 @@ csi1_mclk_pin: csi1-mclk-pin {
+ 				function = "csi";
+ 			};
+ 
++			emac_rgmii_pins: emac-rgmii-pins {
++				pins = "PD0", "PD1", "PD2", "PD3",
++					"PD4", "PD5", "PD7",
++					"PD8", "PD9", "PD10",
++					"PD12", "PD13", "PD15",
++					"PD16", "PD17";
++				function = "emac";
++				drive-strength = <40>;
++			};
++
+ 			i2c0_pins: i2c0-pins {
+ 				pins = "PB6", "PB7";
+ 				function = "i2c0";
+ 			};
+ 
++			pwm0_pins: pwm0 {
++				pins = "PB4";
++				function = "pwm0";
++			};
++
+ 			/omit-if-no-ref/
+ 			i2c1_pb_pins: i2c1-pb-pins {
+ 				pins = "PB8", "PB9";
+ 				function = "i2c1";
+ 			};
+ 
++			lcd_rgb666_pins_a: lcd-rgb666-pe {
++				pins = "PE0", "PE1", "PE2", "PE3", "PE4", "PE5",
++				       "PE6", "PE7", "PE8", "PE9", "PE10", "PE11",
++				       "PE12", "PE13", "PE14", "PE15", "PE16", "PE17",
++				       "PE18", "PE19", "PE23", "PE24";
++				function = "lcd";
++			};
++
+ 			/omit-if-no-ref/
+ 			i2c1_pe_pins: i2c1-pe-pins {
+ 				pins = "PE21", "PE22";
+@@ -422,6 +489,16 @@ wdt0: watchdog@1c20ca0 {
+ 			clocks = <&osc24M>;
+ 		};
+ 
++		pwm: pwm@1c21400 {
++			compatible = "allwinner,sun8i-v3s-pwm",
++			"allwinner,sun7i-a20-pwm";
++			reg = <0x01c21400 0x400>;
++			clocks = <&osc24M>;
++			#pwm-cells = <3>;
++			status = "disabled";
++		};
++
++
+ 		lradc: lradc@1c22800 {
+ 			compatible = "allwinner,sun4i-a10-lradc-keys";
+ 			reg = <0x01c22800 0x400>;
+@@ -429,6 +506,25 @@ lradc: lradc@1c22800 {
+ 			status = "disabled";
+ 		};
+ 
++		codec: codec@01c22c00 {
++			#sound-dai-cells = <0>;
++			compatible = "allwinner,sun8i-v3s-codec";
++			reg = <0x01c22c00 0x400>;
++			interrupts = <GIC_SPI 29 IRQ_TYPE_LEVEL_HIGH>;
++			clocks = <&ccu CLK_BUS_CODEC>, <&ccu CLK_AC_DIG>;
++			clock-names = "apb", "codec";
++			resets = <&ccu RST_BUS_CODEC>;
++			dmas = <&dma 15>, <&dma 15>;
++			dma-names = "rx", "tx";
++			allwinner,codec-analog-controls = <&codec_analog>;
++			status = "disabled";
++		};
++
++		codec_analog: codec-analog@01c23000 {
++			compatible = "allwinner,sun8i-v3s-codec-analog";
++			reg = <0x01c23000 0x4>;
++		};
++
+ 		uart0: serial@1c28000 {
+ 			compatible = "snps,dw-apb-uart";
+ 			reg = <0x01c28000 0x400>;
+diff --git a/arch/arm/boot/dts/tca8418.dts b/arch/arm/boot/dts/tca8418.dts
+new file mode 100644
+index 000000000..90fdaefde
+--- /dev/null
++++ b/arch/arm/boot/dts/tca8418.dts
+@@ -0,0 +1,117 @@
++// Enable i2c keyboard
++
++&i2c0 {
++	i2c_keypad: tca8418@34 {
++		pinctrl-names = "default";
++		compatible = "ti,tca8418";
++		reg = <0x34>;
++
++		/* the interrupt is specified as:
++		* The first cell is the GPIO number.
++		* The second cell is used to specify flags:
++		* bits[3:0] trigger type and level flags:
++		* 1 = low-to-high edge triggered.
++		* 2 = high-to-low edge triggered.
++		* 4 = active high level-sensitive.
++		* 8 = active low level-sensitive.
++		*/
++
++		irq-gpios = <&pio 1 5 0x8>; /* (PB5) */
++		interrupts = <1 5 8>; /* PB5 */
++		interrupt-parent = <&pio>;
++		interrupt-controller;
++
++		keypad,num-rows = <8>;
++		keypad,num-columns = <10>;
++		linux,keymap = <
++			0x0000000d      //EQUAL
++			0x00010002      //1
++			0x00020003      //2
++			0x00030004      //3
++			0x00040005      //4
++			0x00050006      //5
++			0x00060007      //6
++			0x00070008      //7
++			0x00080009      //8
++			0x0009000a      //9
++
++			0x0100000d      //EQUAL
++			0x01010002      //1
++			0x01020003      //2
++			0x01030004      //3
++			0x01040005      //4
++			0x01050006      //5
++			0x01060007      //6
++			0x01070008      //7
++			0x01080009      //8
++			0x0109000a      //9
++
++			0x0200000d      //EQUAL
++			0x02010002      //1
++			0x02020003      //2
++			0x02030004      //3
++			0x02040005      //4
++			0x02050006      //5
++			0x02060007      //6
++			0x02070008      //7
++			0x02080009      //8
++			0x0209000a      //9
++
++			0x0300000d      //EQUAL
++			0x03010002      //1
++			0x03020003      //2
++			0x03030004      //3
++			0x03040005      //4
++			0x03050006      //5
++			0x03060007      //6
++			0x03070008      //7
++			0x03080009      //8
++			0x0309000a      //9
++
++			0x0400000d      //EQUAL
++			0x04010002      //1
++			0x04020003      //2
++			0x04030004      //3
++			0x04040005      //4
++			0x04050006      //5
++			0x04060007      //6
++			0x04070008      //7
++			0x04080009      //8
++			0x0409000a      //9
++
++			0x0500000d      //EQUAL
++			0x05010002      //1
++			0x05020003      //2
++			0x05030004      //3
++			0x05040005      //4
++			0x05050006      //5
++			0x05060007      //6
++			0x05070008      //7
++			0x05080009      //8
++			0x0509000a      //9
++
++			0x0600000d      //EQUAL
++			0x06010002      //1
++			0x06020003      //2
++			0x06030004      //3
++			0x06040005      //4
++			0x06050006      //5
++			0x06060007      //6
++			0x06070008      //7
++			0x06080009      //8
++			0x0609000a      //9
++
++			0x0700000d      //EQUAL
++			0x07010002      //1
++			0x07020003      //2
++			0x07030004      //3
++			0x07040005      //4
++			0x07050006      //5
++			0x07060007      //6
++			0x07070008      //7
++			0x07080009      //8
++			0x0709000a      //9
++			>;
++		status = "okay";
++	};
++};
+diff --git a/arch/arm/configs/licheepi_zero_defconfig b/arch/arm/configs/licheepi_zero_defconfig
+new file mode 100644
+index 000000000..78f4d0026
+--- /dev/null
++++ b/arch/arm/configs/licheepi_zero_defconfig
+@@ -0,0 +1,230 @@
++CONFIG_LOCALVERSION="-licheepi-zero"
++# CONFIG_LOCALVERSION_AUTO is not set
++CONFIG_SYSVIPC=y
++CONFIG_NO_HZ=y
++CONFIG_HIGH_RES_TIMERS=y
++CONFIG_CGROUPS=y
++CONFIG_BLK_DEV_INITRD=y
++CONFIG_PERF_EVENTS=y
++CONFIG_ARCH_SUNXI=y
++# CONFIG_MACH_SUN4I is not set
++# CONFIG_MACH_SUN5I is not set
++# CONFIG_MACH_SUN6I is not set
++# CONFIG_MACH_SUN7I is not set
++# CONFIG_MACH_SUN9I is not set
++CONFIG_SMP=y
++CONFIG_HAVE_ARM_ARCH_TIMER=y
++CONFIG_NR_CPUS=8
++CONFIG_ARM_PSCI=y
++CONFIG_HIGHMEM=y
++CONFIG_ZBOOT_ROM_TEXT=0
++CONFIG_ZBOOT_ROM_BSS=0
++CONFIG_ARM_APPENDED_DTB=y
++CONFIG_ARM_ATAG_DTB_COMPAT=y
++CONFIG_CPU_FREQ=y
++CONFIG_CPUFREQ_DT=y
++CONFIG_VFP=y
++CONFIG_NEON=y
++CONFIG_MODULES=y
++CONFIG_MODULE_UNLOAD=y
++CONFIG_NET=y
++CONFIG_PACKET=y
++CONFIG_PACKET_DIAG=y
++CONFIG_UNIX=y
++CONFIG_UNIX_DIAG=y
++CONFIG_TLS=y
++CONFIG_TLS_DEVICE=y
++CONFIG_XFRM_USER=y
++CONFIG_XFRM_SUB_POLICY=y
++CONFIG_XFRM_MIGRATE=y
++CONFIG_XFRM_STATISTICS=y
++CONFIG_INET=y
++CONFIG_IP_MULTICAST=y
++CONFIG_IP_ADVANCED_ROUTER=y
++CONFIG_IP_ROUTE_MULTIPATH=y
++CONFIG_IP_PNP=y
++CONFIG_IP_PNP_DHCP=y
++CONFIG_IP_PNP_RARP=y
++CONFIG_IP_MROUTE=y
++CONFIG_SYN_COOKIES=y
++CONFIG_INET_UDP_DIAG=m
++CONFIG_TCP_CONG_ADVANCED=y
++# CONFIG_IPV6 is not set
++CONFIG_BRIDGE=y
++CONFIG_CFG80211=m
++CONFIG_MAC80211=m
++CONFIG_DEVTMPFS=y
++CONFIG_DEVTMPFS_MOUNT=y
++CONFIG_MTD=y
++CONFIG_MTD_SPI_NOR=y
++CONFIG_SCSI=y
++CONFIG_BLK_DEV_SD=y
++CONFIG_NETDEVICES=y
++# CONFIG_NET_VENDOR_ALACRITECH is not set
++# CONFIG_NET_VENDOR_AMAZON is not set
++# CONFIG_NET_VENDOR_AQUANTIA is not set
++# CONFIG_NET_VENDOR_ARC is not set
++# CONFIG_NET_VENDOR_AURORA is not set
++# CONFIG_NET_VENDOR_BROADCOM is not set
++# CONFIG_NET_VENDOR_CADENCE is not set
++# CONFIG_NET_VENDOR_CAVIUM is not set
++# CONFIG_NET_VENDOR_CIRRUS is not set
++# CONFIG_NET_VENDOR_CORTINA is not set
++# CONFIG_NET_VENDOR_EZCHIP is not set
++# CONFIG_NET_VENDOR_FARADAY is not set
++# CONFIG_NET_VENDOR_GOOGLE is not set
++# CONFIG_NET_VENDOR_HISILICON is not set
++# CONFIG_NET_VENDOR_HUAWEI is not set
++# CONFIG_NET_VENDOR_INTEL is not set
++# CONFIG_NET_VENDOR_MELLANOX is not set
++# CONFIG_NET_VENDOR_MICREL is not set
++# CONFIG_NET_VENDOR_MICROCHIP is not set
++# CONFIG_NET_VENDOR_MICROSEMI is not set
++# CONFIG_NET_VENDOR_NATSEMI is not set
++# CONFIG_NET_VENDOR_NETRONOME is not set
++# CONFIG_NET_VENDOR_NI is not set
++# CONFIG_NET_VENDOR_QUALCOMM is not set
++# CONFIG_NET_VENDOR_RENESAS is not set
++# CONFIG_NET_VENDOR_ROCKER is not set
++# CONFIG_NET_VENDOR_SAMSUNG is not set
++# CONFIG_NET_VENDOR_SEEQ is not set
++# CONFIG_NET_VENDOR_SOLARFLARE is not set
++# CONFIG_NET_VENDOR_SMSC is not set
++# CONFIG_NET_VENDOR_SOCIONEXT is not set
++CONFIG_STMMAC_ETH=y
++# CONFIG_NET_VENDOR_SYNOPSYS is not set
++# CONFIG_NET_VENDOR_VIA is not set
++# CONFIG_NET_VENDOR_WIZNET is not set
++# CONFIG_NET_VENDOR_XILINX is not set
++CONFIG_MDIO_SUN4I=y
++# CONFIG_WLAN_VENDOR_ADMTEK is not set
++# CONFIG_WLAN_VENDOR_ATH is not set
++# CONFIG_WLAN_VENDOR_ATMEL is not set
++# CONFIG_WLAN_VENDOR_BROADCOM is not set
++# CONFIG_WLAN_VENDOR_CISCO is not set
++# CONFIG_WLAN_VENDOR_INTEL is not set
++# CONFIG_WLAN_VENDOR_INTERSIL is not set
++# CONFIG_WLAN_VENDOR_MARVELL is not set
++# CONFIG_WLAN_VENDOR_MEDIATEK is not set
++# CONFIG_WLAN_VENDOR_RALINK is not set
++# CONFIG_WLAN_VENDOR_REALTEK is not set
++# CONFIG_WLAN_VENDOR_RSI is not set
++# CONFIG_WLAN_VENDOR_ST is not set
++# CONFIG_WLAN_VENDOR_TI is not set
++# CONFIG_WLAN_VENDOR_ZYDAS is not set
++# CONFIG_WLAN_VENDOR_QUANTENNA is not set
++CONFIG_WAN=y
++CONFIG_INPUT_MOUSEDEV=m
++CONFIG_INPUT_EVDEV=y
++CONFIG_KEYBOARD_TCA8418=m
++CONFIG_KEYBOARD_SUN4I_LRADC=y
++CONFIG_INPUT_TOUCHSCREEN=y
++CONFIG_TOUCHSCREEN_NS2009=y
++CONFIG_INPUT_MISC=y
++CONFIG_INPUT_AXP20X_PEK=y
++CONFIG_SERIAL_8250=y
++CONFIG_SERIAL_8250_CONSOLE=y
++CONFIG_SERIAL_8250_NR_UARTS=8
++CONFIG_SERIAL_8250_RUNTIME_UARTS=8
++CONFIG_SERIAL_8250_DW=y
++CONFIG_SERIAL_OF_PLATFORM=y
++# CONFIG_HW_RANDOM is not set
++CONFIG_I2C_CHARDEV=y
++CONFIG_I2C_MV64XXX=y
++CONFIG_SPI=y
++CONFIG_SPI_GPIO=y
++CONFIG_SPI_SUN6I=y
++# CONFIG_PTP_1588_CLOCK is not set
++CONFIG_GPIO_SYSFS=y
++CONFIG_POWER_SUPPLY=y
++# CONFIG_HWMON is not set
++CONFIG_THERMAL=y
++CONFIG_CPU_THERMAL=y
++CONFIG_WATCHDOG=y
++CONFIG_SUNXI_WATCHDOG=y
++CONFIG_MFD_AXP20X_I2C=y
++CONFIG_MFD_AXP20X_RSB=y
++CONFIG_REGULATOR=y
++CONFIG_REGULATOR_FIXED_VOLTAGE=y
++CONFIG_REGULATOR_AXP20X=y
++CONFIG_REGULATOR_GPIO=y
++CONFIG_MEDIA_SUPPORT=y
++CONFIG_MEDIA_CAMERA_SUPPORT=y
++CONFIG_MEDIA_DIGITAL_TV_SUPPORT=y
++CONFIG_VIDEO_V4L2_SUBDEV_API=y
++# CONFIG_DVB_DYNAMIC_MINORS is not set
++CONFIG_MEDIA_USB_SUPPORT=y
++CONFIG_USB_VIDEO_CLASS=m
++CONFIG_VIDEO_EM28XX=m
++CONFIG_VIDEO_EM28XX_V4L2=m
++CONFIG_CXD2880_SPI_DRV=y
++CONFIG_DRM=y
++CONFIG_DRM_SUN4I=y
++CONFIG_DRM_PANEL_SIMPLE=y
++CONFIG_FB_SIMPLE=y
++CONFIG_FB_SSD1307=y
++CONFIG_LCD_CLASS_DEVICE=m
++CONFIG_BACKLIGHT_PWM=y
++CONFIG_SOUND=y
++CONFIG_SND=y
++CONFIG_SND_SOC=y
++CONFIG_SND_SUN4I_CODEC=y
++CONFIG_SND_SUN8I_CODEC_ANALOG=y
++CONFIG_USB=y
++CONFIG_USB_OTG=y
++CONFIG_USB_OTG_FSM=m
++CONFIG_USB_EHCI_HCD=y
++CONFIG_USB_EHCI_HCD_PLATFORM=y
++CONFIG_USB_OHCI_HCD=y
++CONFIG_USB_OHCI_HCD_PLATFORM=y
++CONFIG_USB_WDM=m
++CONFIG_USB_STORAGE=y
++CONFIG_USB_MUSB_HDRC=y
++CONFIG_USB_MUSB_SUNXI=y
++CONFIG_USB_SERIAL=m
++CONFIG_USB_SERIAL_GENERIC=y
++CONFIG_USB_SERIAL_SIMPLE=m
++CONFIG_USB_SERIAL_CP210X=m
++CONFIG_NOP_USB_XCEIV=y
++CONFIG_USB_GADGET=y
++CONFIG_USB_ETH=m
++CONFIG_MMC=y
++CONFIG_MMC_SUNXI=y
++CONFIG_NEW_LEDS=y
++CONFIG_LEDS_CLASS=y
++CONFIG_LEDS_GPIO=y
++CONFIG_LEDS_TRIGGERS=y
++CONFIG_LEDS_TRIGGER_HEARTBEAT=y
++CONFIG_LEDS_TRIGGER_DEFAULT_ON=y
++CONFIG_RTC_CLASS=y
++# CONFIG_RTC_INTF_SYSFS is not set
++# CONFIG_RTC_INTF_PROC is not set
++CONFIG_DMADEVICES=y
++CONFIG_DMA_SUN6I=y
++# CONFIG_VIRTIO_MENU is not set
++CONFIG_STAGING=y
++CONFIG_RTL8723BS=m
++# CONFIG_SUN8I_A23_CCU is not set
++# CONFIG_SUN8I_A33_CCU is not set
++# CONFIG_SUN8I_H3_CCU is not set
++# CONFIG_IOMMU_SUPPORT is not set
++CONFIG_PWM_SUN4I=y
++CONFIG_PHY_SUN4I_USB=y
++CONFIG_NVMEM_SUNXI_SID=y
++CONFIG_EXT4_FS=y
++CONFIG_AUTOFS_FS=y
++CONFIG_VFAT_FS=y
++CONFIG_TMPFS=y
++CONFIG_CONFIGFS_FS=y
++CONFIG_NLS_CODEPAGE_437=y
++CONFIG_NLS_ISO8859_1=y
++CONFIG_LSM="yama,loadpin,safesetid,integrity"
++CONFIG_CRYPTO_CCM=y
++CONFIG_CRYPTO_SEQIV=y
++CONFIG_CRYPTO_CMAC=y
++CONFIG_CRYPTO_DES=y
++CONFIG_CRYPTO_DEV_SUN4I_SS=y
++CONFIG_PRINTK_TIME=y
++CONFIG_DEBUG_FS=y
++CONFIG_DEBUG_KERNEL=y
++# CONFIG_FTRACE is not set
+diff --git a/drivers/input/touchscreen/Kconfig b/drivers/input/touchscreen/Kconfig
+index 529614d36..2b45b7607 100644
+--- a/drivers/input/touchscreen/Kconfig
++++ b/drivers/input/touchscreen/Kconfig
+@@ -733,6 +733,19 @@ config TOUCHSCREEN_MIGOR
+ 	  To compile this driver as a module, choose M here: the
+ 	  module will be called migor_ts.
+ 
++config TOUCHSCREEN_NS2009
++	tristate "Nsiway NS2009 touchscreen"
++	depends on I2C
++	select INPUT_POLLDEV
++	help
++	  Say Y here to enable Nsiway NS2009 resistive touchscreen
++	  controller support.
++
++	  If unsure, say N.
++
++	  To compile this driver as a module, choose M here: the
++	  module will be called ns2009.
++
+ config TOUCHSCREEN_TOUCHRIGHT
+ 	tristate "Touchright serial touchscreen"
+ 	select SERIO
+diff --git a/drivers/input/touchscreen/Makefile b/drivers/input/touchscreen/Makefile
+index 6233541e9..ff9bbc80b 100644
+--- a/drivers/input/touchscreen/Makefile
++++ b/drivers/input/touchscreen/Makefile
+@@ -65,6 +65,7 @@ obj-$(CONFIG_TOUCHSCREEN_HP600)		+= hp680_ts_input.o
+ obj-$(CONFIG_TOUCHSCREEN_HP7XX)		+= jornada720_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_IPAQ_MICRO)	+= ipaq-micro-ts.o
+ obj-$(CONFIG_TOUCHSCREEN_HTCPEN)	+= htcpen.o
++obj-$(CONFIG_TOUCHSCREEN_NS2009)	+= ns2009.o
+ obj-$(CONFIG_TOUCHSCREEN_USB_COMPOSITE)	+= usbtouchscreen.o
+ obj-$(CONFIG_TOUCHSCREEN_PCAP)		+= pcap_ts.o
+ obj-$(CONFIG_TOUCHSCREEN_PENMOUNT)	+= penmount.o
+diff --git a/drivers/input/touchscreen/ns2009.c b/drivers/input/touchscreen/ns2009.c
+new file mode 100644
+index 000000000..c364c1109
+--- /dev/null
++++ b/drivers/input/touchscreen/ns2009.c
+@@ -0,0 +1,211 @@
++/*
++ * Nsiway NS2009 touchscreen controller driver
++ *
++ * Copyright (C) 2017 Icenowy Zheng <icenowy@aosc.xyz>
++ *
++ * Some codes are from silead.c, which is
++ *   Copyright (C) 2014-2015 Intel Corporation
++ *
++ * This program is free software; you can redistribute it and/or modify
++ * it under the terms of the GNU General Public License as published by
++ * the Free Software Foundation; either version 2 of the License, or
++ * (at your option) any later version.
++ *
++ * This program is distributed in the hope that it will be useful,
++ * but WITHOUT ANY WARRANTY; without even the implied warranty of
++ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
++ * GNU General Public License for more details.
++ */
++
++ #include <linux/kernel.h>
++#include <linux/module.h>
++#include <linux/input.h>
++#include <linux/input/touchscreen.h>
++#include <linux/i2c.h>
++
++ /* polling interval in ms */
++#define POLL_INTERVAL	30
++
++ /* this driver uses 12-bit readout */
++#define MAX_12BIT	0xfff
++
++ #define NS2009_TS_NAME	"ns2009_ts"
++
++ #define NS2009_READ_X_LOW_POWER_12BIT	0xc0
++#define NS2009_READ_Y_LOW_POWER_12BIT	0xd0
++#define NS2009_READ_Z1_LOW_POWER_12BIT	0xe0
++#define NS2009_READ_Z2_LOW_POWER_12BIT	0xf0
++
++ #define NS2009_DEF_X_FUZZ	32
++#define NS2009_DEF_Y_FUZZ	16
++
++ /*
++ * The chip have some error in z1 value when pen is up, so the data read out
++ * is sometimes not accurately 0.
++ * This value is based on experiements.
++ */
++#define NS2009_PEN_UP_Z1_ERR	80
++
++ struct ns2009_data {
++	struct i2c_client		*client;
++	struct input_dev		*input;
++
++ 	struct touchscreen_properties	prop;
++
++ 	bool				pen_down;
++};
++
++ static int ns2009_ts_read_data(struct ns2009_data *data, u8 cmd, u16 *val)
++{
++	u8 raw_data[2];
++	int error;
++
++ 	error = i2c_smbus_read_i2c_block_data(data->client, cmd, 2, raw_data);
++	if (error < 0)
++		return error;
++
++ 	if (unlikely(raw_data[1] & 0xf))
++		return -EINVAL;
++
++ 	*val = (raw_data[0] << 4) | (raw_data[1] >> 4);
++
++ 	return 0;
++}
++
++ static int ns2009_ts_report(struct ns2009_data *data)
++{
++	u16 x, y, z1;
++	int ret;
++
++ 	/*
++	 * NS2009 chip supports pressure measurement, but currently it needs
++	 * more investigation, so we only use z1 axis to detect pen down
++	 * here.
++	 */
++	ret = ns2009_ts_read_data(data, NS2009_READ_Z1_LOW_POWER_12BIT, &z1);
++	if (ret)
++		return ret;
++
++ 	if (z1 >= NS2009_PEN_UP_Z1_ERR) {
++		ret = ns2009_ts_read_data(data, NS2009_READ_X_LOW_POWER_12BIT,
++					  &x);
++		if (ret)
++			return ret;
++
++ 		ret = ns2009_ts_read_data(data, NS2009_READ_Y_LOW_POWER_12BIT,
++					  &y);
++		if (ret)
++			return ret;
++
++ 		if (!data->pen_down) {
++			input_report_key(data->input, BTN_TOUCH, 1);
++			data->pen_down = true;
++		}
++
++ 		input_report_abs(data->input, ABS_X, x);
++		input_report_abs(data->input, ABS_Y, y);
++		input_sync(data->input);
++	} else if (data->pen_down) {
++		input_report_key(data->input, BTN_TOUCH, 0);
++		input_sync(data->input);
++		data->pen_down = false;
++	}
++	return 0;
++}
++
++ static void ns2009_ts_poll(struct input_dev *input_dev)
++{
++	struct ns2009_data *data = input_get_drvdata(input_dev);
++	int ret;
++
++ 	ret = ns2009_ts_report(data);
++//	if (ret)
++//		dev_err(&pdev->dev, "touch data failed: %d\n", ret);
++}
++
++ static void ns2009_ts_config_input_dev(struct ns2009_data *data)
++{
++	struct input_dev *input = data->input;
++
++ 	input_set_abs_params(input, ABS_X, 0, MAX_12BIT, NS2009_DEF_X_FUZZ, 0);
++	input_set_abs_params(input, ABS_Y, 0, MAX_12BIT, NS2009_DEF_Y_FUZZ, 0);
++	touchscreen_parse_properties(input, false, &data->prop);
++
++ 	input->name = NS2009_TS_NAME;
++	input->phys = "input/ts";
++	input->id.bustype = BUS_I2C;
++	input_set_capability(input, EV_KEY, BTN_TOUCH);
++}
++
++ static int ns2009_ts_request_polled_input_dev(struct ns2009_data *data)
++{
++	struct device *dev = &data->client->dev;
++	struct input_dev *input_dev;
++	int error;
++
++ 	input_dev = devm_input_allocate_device(dev);
++	if (!input_dev) {
++		dev_err(dev,
++			"Failed to allocate input device\n");
++		return -ENOMEM;
++	}
++//	data->input = polled_dev->input;
++
++ 	ns2009_ts_config_input_dev(data);
++//	polled_dev->private = data;
++//	polled_dev->poll = ns2009_ts_poll;
++//	polled_dev->poll_interval = POLL_INTERVAL;
++
++ 	error = input_register_device(input_dev);
++	if (error) {
++		dev_err(dev, "Failed to register polled input device: %d\n",
++			error);
++		return error;
++	}
++
++ 	return 0;
++}
++
++ static int ns2009_ts_probe(struct i2c_client *client,
++			   const struct i2c_device_id *id)
++{
++	struct ns2009_data *data;
++	struct device *dev = &client->dev;
++	int error;
++
++ 	if (!i2c_check_functionality(client->adapter,
++				     I2C_FUNC_I2C |
++				     I2C_FUNC_SMBUS_READ_I2C_BLOCK |
++				     I2C_FUNC_SMBUS_WRITE_I2C_BLOCK)) {
++		dev_err(dev, "I2C functionality check failed\n");
++		return -ENXIO;
++	}
++
++ 	data = devm_kzalloc(dev, sizeof(*data), GFP_KERNEL);
++	if (!data)
++		return -ENOMEM;
++
++ 	i2c_set_clientdata(client, data);
++	data->client = client;
++
++ 	error = ns2009_ts_request_polled_input_dev(data);
++	if (error)
++		return error;
++
++ 	return 0;
++};
++
++ static const struct i2c_device_id ns2009_ts_id[] = {
++	{ "ns2009", 0 },
++	{ }
++};
++MODULE_DEVICE_TABLE(i2c, ns2009_ts_id);
++
++ static struct i2c_driver ns2009_ts_driver = {
++	.probe = ns2009_ts_probe,
++	.id_table = ns2009_ts_id,
++	.driver = {
++		.name = NS2009_TS_NAME,
++	},
++};
++module_i2c_driver(ns2009_ts_driver);

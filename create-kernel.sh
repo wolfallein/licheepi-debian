@@ -1,8 +1,8 @@
 #!/bin/bash
 git clone https://github.com/torvalds/linux.git --depth=1
 cd linux
-cp ../licheepi-kernel-5.8.patch .
-git apply licheepi-kernel-5.8.patch
+cp ../licheepi-kernel-5.12.0.patch .
+git apply licheepi-kernel-5.12.0.patch
 export ARCH=arm
 export CROSS_COMPILE=arm-linux-gnueabihf-
 make licheepi_zero_defconfig
