@@ -5,6 +5,7 @@ rootfs_dir="licheepi-image/rootfs"
 multistrap -a armhf -f multistrap.conf
 
 # Configure new system
+mkdir $rootfs_dir/etc/sgml
 cp /usr/bin/qemu-arm-static $rootfs_dir/usr/bin
 mount -o bind /dev/ $rootfs_dir/dev/
 # Set environment variables

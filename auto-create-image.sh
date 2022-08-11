@@ -1,9 +1,20 @@
 #!/bin/bash
 # Cleaning
+echo "Cleaning directory"
 sudo rm licheepi-debian.img
 sudo rm -rf linux
 sudo rm -rf u-boot
 sudo rm boot.scr
+rm -rf gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf
+rm gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
+rm -rf gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf
+rm gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz
+echo "Generating u-boot toolchain"
+wget -c https://releases.linaro.org/components/toolchain/binaries/6.5-2018.12/arm-linux-gnueabihf/gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz
+tar xf gcc-linaro-6.5.0-2018.12-x86_64_arm-linux-gnueabihf.tar.xz
+echo "Generating kernel toolchain"
+wget -c https://releases.linaro.org/components/toolchain/binaries/latest-7/arm-linux-gnueabihf/gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
+tar xf gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf.tar.xz
 echo "Generating image file and mounting"
 sudo ./create-image.sh
 echo "Generating u-boot"
@@ -20,7 +31,7 @@ mkimage -C none -A arm -T script -d boot.cmd boot.scr
 sudo cp -p boot.scr licheepi-image/BOOT/
 echo "Installing kernel modules"
 cd linux/
-sudo make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=$(pwd)/../licheepi-image/rootfs modules_install
+sudo make ARCH=arm CROSS_COMPILE=`pwd`/../gcc-linaro-7.5.0-2019.12-x86_64_arm-linux-gnueabihf/bin/arm-linux-gnueabihf- INSTALL_MOD_PATH=$(pwd)/../licheepi-image/rootfs modules_install
 cd ..
 echo "Finishing job"
 sudo umount licheepi-image/BOOT
